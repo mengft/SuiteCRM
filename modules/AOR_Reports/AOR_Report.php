@@ -548,6 +548,7 @@ class AOR_Report extends Basic
             $result = $this->db->query($query);
 
             while ($row = $this->db->fetchByAssoc($result)) {
+
                 if ($html !== '') {
                     $html .= '<br />';
                 }
@@ -600,6 +601,7 @@ class AOR_Report extends Basic
 
     function build_report_html($offset = -1, $links = true, $group_value = '', $tableIdentifier = '', $extra = array())
     {
+        // print_r('build_report_html');
 
         global $beanList, $sugar_config;
 
@@ -783,28 +785,95 @@ class AOR_Report extends Basic
 
 
         $totals = array();
+        $rowArray = array();
+
         while ($fieldCount && $row = $this->db->fetchByAssoc($result)) {
+
+            $noteKey = '-1';
+            foreach ($row as $key => $value) {
+                if ($key && preg_match("/^['Note'|'挑战与机遇']+[0-9]*$/", $key)) $noteKey = $key;
+            }
+
+            $response = $this->rowArrayIndexOf($rowArray, 'ID0', $row['ID0']);
+      
+            if ($response['index'] == -1 || $noteKey == '-1') {
+                array_push($rowArray, $row);
+            } else {
+                $element = $response['element'];
+                $element[$noteKey] = $element[$noteKey].'<br/>'.$row[$noteKey];
+                array_splice($rowArray, $response['index'], 1, array($element));
+            }
+
+            // $html .= "<tr class='" . $row_class . "' height='20'>";
+
+            // foreach ($fields as $name => $att) {
+            //     if ($att['display']) {
+
+            //         $html .= "<td class='' valign='top' align='left'>";
+            //         if ($att['link'] && $links) {
+            //             $html .= "<a href='" . $sugar_config['site_url'] . "/index.php?module=" . $att['module'] . "&action=DetailView&record=" . $row[$att['alias'] . '_id'] . "'>";
+            //         }
+
+            //         $currency_id = isset($row[$att['alias'] . '_currency_id']) ? $row[$att['alias'] . '_currency_id'] : '';
+
+            //         if ($att['function'] == 'COUNT' || !empty($att['params'])) {
+            //             $html .= $row[$name];
+            //         } else {
+            //             $att['params']['record_id'] = $row[$att['alias'] . '_id'];
+            //             $html .= getModuleField(
+            //                 $att['module'],
+            //                 $att['field'],
+            //                 $att['field'],
+            //                 'DetailView',
+            //                 $row[$name],
+            //                 '',
+            //                 $currency_id,
+            //                 $att['params']
+            //             );
+            //         }
+
+            //         if ($att['total']) {
+            //             $totals[$name][] = $row[$name];
+            //         }
+            //         if ($att['link'] && $links) {
+            //             $html .= "</a>";
+            //         }
+            //         $html .= "</td>";
+            //     }
+            // }
+            // $html .= "</tr>";
+
+            // $row_class = $row_class == 'oddListRowS1' ? 'evenListRowS1' : 'oddListRowS1';
+
+        }
+
+        // print_r($rowArray);
+        foreach ($rowArray as $rowN) {
+            // print_r("row");
+            // print_r($rowN);
+
             $html .= "<tr class='" . $row_class . "' height='20'>";
 
             foreach ($fields as $name => $att) {
                 if ($att['display']) {
+
                     $html .= "<td class='' valign='top' align='left'>";
                     if ($att['link'] && $links) {
-                        $html .= "<a href='" . $sugar_config['site_url'] . "/index.php?module=" . $att['module'] . "&action=DetailView&record=" . $row[$att['alias'] . '_id'] . "'>";
+                        $html .= "<a href='" . $sugar_config['site_url'] . "/index.php?module=" . $att['module'] . "&action=DetailView&record=" . $rowN[$att['alias'] . '_id'] . "'>";
                     }
 
-                    $currency_id = isset($row[$att['alias'] . '_currency_id']) ? $row[$att['alias'] . '_currency_id'] : '';
+                    $currency_id = isset($rowN[$att['alias'] . '_currency_id']) ? $rowN[$att['alias'] . '_currency_id'] : '';
 
                     if ($att['function'] == 'COUNT' || !empty($att['params'])) {
-                        $html .= $row[$name];
+                        $html .= $rowN[$name];
                     } else {
-                        $att['params']['record_id'] = $row[$att['alias'] . '_id'];
+                        if ($att['params'] && array_key_exists('record_id', $att['params'])) $att['params']['record_id'] = $rowN[$att['alias'] . '_id'];
                         $html .= getModuleField(
                             $att['module'],
                             $att['field'],
                             $att['field'],
                             'DetailView',
-                            $row[$name],
+                            $rowN[$name],
                             '',
                             $currency_id,
                             $att['params']
@@ -812,7 +881,7 @@ class AOR_Report extends Basic
                     }
 
                     if ($att['total']) {
-                        $totals[$name][] = $row[$name];
+                        $totals[$name][] = $rowN[$name];
                     }
                     if ($att['link'] && $links) {
                         $html .= "</a>";
@@ -824,6 +893,8 @@ class AOR_Report extends Basic
 
             $row_class = $row_class == 'oddListRowS1' ? 'evenListRowS1' : 'oddListRowS1';
         }
+
+
         $html .= "</tbody>";
 
         $html .= $this->getTotalHTML($fields, $totals);
@@ -851,6 +922,18 @@ class AOR_Report extends Basic
                         </script>";
 
         return $html;
+    }
+
+    function rowArrayIndexOf ($rowArray, $key, $value) {
+        $response = array("index" => -1, "element" => null);
+        foreach($rowArray as $itemkey => $itemvalue) {
+            if ($itemvalue[$key] == $value) {
+
+                $response["index"] = $itemkey;
+                $response["element"] = $itemvalue;
+            }
+        }
+        return $response;
     }
 
     private function getModuleFieldByGroupValue($beanList, $group_value)
